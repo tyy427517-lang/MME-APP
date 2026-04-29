@@ -1,13 +1,199 @@
 'use client';
-import { useState } from 'react';
+import { useEffect } from 'react';
 
 export default function Home() {
-  return (
-    <div dangerouslySetInnerHTML={{ __html: PAGE_HTML }} />
-  );
-}
+  useEffect(() => {
+    // Service selection
+    (window as any).selectService = (type: string, el: HTMLElement) => {
+      (window as any).selectedService = type;
+      document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      const btn = document.getElementById('step1-next') as HTMLButtonElement;
+      if (btn) btn.disabled = false;
+    };
 
-const PAGE_HTML = `<style>
+    // Goal selection
+    (window as any).selectGoal = (el: HTMLElement, goal: string) => {
+      (window as any).selectedGoal = goal;
+      document.querySelectorAll('.goal-option').forEach(g => g.classList.remove('selected'));
+      el.classList.add('selected');
+    };
+
+    // Page navigation
+    (window as any).showPage = (id: string) => {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const page = document.getElementById(id);
+      if (page) page.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    (window as any).startFlow = () => {
+      (window as any).showPage('page-flow');
+      (window as any).updateSteps(1);
+    };
+
+    // Step navigation
+    (window as any).showStep = (id: string) => {
+      ['step-1', 'step-2', 'step-3'].forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.classList.add('hidden');
+      });
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+    };
+
+    (window as any).updateSteps = (active: number) => {
+      for (let i = 1; i <= 3; i++) {
+        const node = document.getElementById('step-node-' + i);
+        const circle = document.getElementById('sc-' + i);
+        if (!node || !circle) continue;
+        node.classList.remove('done', 'active');
+        if (i < active) { node.classList.add('done'); circle.textContent = '✓'; }
+        else if (i === active) { node.classList.add('active'); circle.textContent = String(i); }
+        else { circle.textContent = String(i); }
+      }
+      for (let i = 1; i <= 2; i++) {
+        const conn = document.getElementById('step-conn-' + i);
+        if (conn) conn.classList.toggle('done', i < active);
+      }
+    };
+
+    (window as any).goToStep2 = () => {
+      if (!(window as any).selectedService) return;
+      (window as any).showStep('step-2');
+      (window as any).updateSteps(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    (window as any).goToStep1 = () => {
+      (window as any).showStep('step-1');
+      (window as any).updateSteps(1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    (window as any).handleUpload = (input: HTMLInputElement) => {
+      const el = document.getElementById('upload-text');
+      if (el && input.files) el.textContent = '✓ ' + input.files.length + ' file(s) uploaded';
+    };
+
+    // Toast
+    let toastTimer: any;
+    (window as any).showToast = (msg: string) => {
+      const t = document.getElementById('toast');
+      const m = document.getElementById('toast-msg');
+      if (t && m) { m.textContent = msg; t.classList.remove('hidden'); }
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { const t = document.getElementById('toast'); if (t) t.classList.add('hidden'); }, 3800);
+    };
+
+    // Copy proposal
+    (window as any).copyProposal = () => {
+      const el = document.getElementById('result-content');
+      if (el) navigator.clipboard?.writeText(el.innerText).then(() => (window as any).showToast('✓ Copied to clipboard'));
+    };
+
+    // Start over
+    (window as any).startOver = () => {
+      (window as any).selectedService = null;
+      (window as any).selectedGoal = '';
+      document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
+      const btn = document.getElementById('step1-next') as HTMLButtonElement;
+      if (btn) btn.disabled = true;
+      ['biz-name', 'biz-desc', 'biz-audience', 'biz-website'].forEach(id => {
+        const el = document.getElementById(id) as HTMLInputElement;
+        if (el) el.value = '';
+      });
+      document.querySelectorAll('.goal-option').forEach(g => g.classList.remove('selected'));
+      (window as any).showStep('step-1');
+      (window as any).updateSteps(1);
+      (window as any).showPage('page-flow');
+    };
+
+    // Loading animation
+    (window as any).animateLoadingSteps = () => {
+      const steps = ['lstep-1', 'lstep-2', 'lstep-3', 'lstep-4', 'lstep-5'];
+      let i = 0;
+      function next() {
+        if (i > 0) {
+          const prev = document.getElementById(steps[i - 1]);
+          if (prev) { prev.classList.remove('active'); prev.classList.add('done'); const icon = prev.querySelector('.lstep-icon'); if (icon) icon.textContent = '✓'; }
+        }
+        if (i < steps.length) {
+          const curr = document.getElementById(steps[i]);
+          if (curr) curr.classList.add('active');
+          i++;
+          setTimeout(next, 900);
+        }
+      }
+      next();
+    };
+
+    // Display result
+    (window as any).displayResult = (text: string) => {
+      const loading = document.getElementById('loading-state');
+      const result = document.getElementById('result-state');
+      if (loading) loading.classList.add('hidden');
+      if (result) result.classList.remove('hidden');
+      const html = text
+        .replace(/^# (.+)$/gm, '<h1 style="font-family:Playfair Display,serif;color:#F0EEE8;font-size:22px;margin:28px 0 12px;font-weight:700;">$1</h1>')
+        .replace(/^## (.+)$/gm, '<h2 style="font-family:Playfair Display,serif;color:#F0EEE8;font-size:18px;margin:22px 0 10px;">$1</h2>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#F0EEE8;font-weight:600;">$1</strong>')
+        .replace(/^- (.+)$/gm, '<div style="display:flex;gap:8px;margin:5px 0;"><span style="color:#7C5CFC;flex-shrink:0;">▸</span><span>$1</span></div>')
+        .replace(/\n\n/g, '<br/><br/>');
+      const el = document.getElementById('result-content');
+      if (el) el.innerHTML = html || text;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Fallback proposal
+    (window as any).fallbackProposal = (name: string, service: string, audience: string, budget: string, goal: string) => {
+      return `# Executive Summary\n\n${name} has a strong opportunity to grow online. We have identified a clear path to reach ${audience} and drive results for your goal: ${goal || 'growth'}.\n\n# Recommended Strategy\n\n**Core pillars:**\n- Build brand authority through consistent content\n- Convert awareness into leads via targeted ads\n- Optimize every touchpoint for ${goal || 'growth'}\n\n# 90-Day Roadmap\n\n**Month 1 — Foundation**\nSet up profiles, establish brand voice, launch awareness campaign.\n\n**Month 2 — Momentum**\nScale winning content, launch retargeting, grow following.\n\n**Month 3 — Scale**\nDouble down on best channels, optimize ad spend.\n\n# Pricing Tiers\n\n**Basic — $750/mo**\n- 12 custom posts/month\n- Graphic design & copywriting\n- Monthly analytics report\n\n**Pro — $1,500/mo** ⭐ Most Popular\n- 20 posts/month\n- Paid ads ($300 included)\n- Bi-weekly strategy call\n\n**Premium — $3,000/mo**\n- 30+ posts/month\n- $1,000 ad spend included\n- Dedicated account manager\n\n# Next Steps\n\n1. Reply with any questions\n2. Schedule a free 30-min call\n3. Choose your package — we start within 48 hours`;
+    };
+
+    // Generate proposal
+    (window as any).generateProposal = async () => {
+      const bizName = (document.getElementById('biz-name') as HTMLInputElement)?.value.trim();
+      const bizDesc = (document.getElementById('biz-desc') as HTMLTextAreaElement)?.value.trim();
+      const bizAudience = (document.getElementById('biz-audience') as HTMLTextAreaElement)?.value.trim();
+      if (!bizName || !bizDesc || !bizAudience) {
+        (window as any).showToast('⚠️ Please fill in Business Name, Description, and Audience.');
+        return;
+      }
+      const bizBudget = (document.getElementById('biz-budget') as HTMLSelectElement)?.value;
+      const bizIndustry = (document.getElementById('biz-industry') as HTMLSelectElement)?.value;
+      const bizWebsite = (document.getElementById('biz-website') as HTMLInputElement)?.value.trim();
+      const serviceLabel: any = { social: 'Social Media Marketing', website: 'Website Design', both: 'Social Media + Website Design' };
+      const service = serviceLabel[(window as any).selectedService] || 'Marketing';
+
+      (window as any).showStep('step-3');
+      (window as any).updateSteps(3);
+      const loading = document.getElementById('loading-state');
+      const result = document.getElementById('result-state');
+      if (loading) loading.classList.remove('hidden');
+      if (result) result.classList.add('hidden');
+      (window as any).animateLoadingSteps();
+
+      const prompt = `You are a senior marketing strategist at MME Marketing. Write a professional proposal for:\n\nBusiness: ${bizName}\nIndustry: ${bizIndustry || 'Not specified'}\nService: ${service}\nDescription: ${bizDesc}\nAudience: ${bizAudience}\nGoal: ${(window as any).selectedGoal || 'Growth'}\nBudget: ${bizBudget || 'Not specified'}\nWebsite: ${bizWebsite || 'None'}\n\nInclude: Executive Summary, Recommended Strategy, 90-Day Roadmap, Pricing Tiers (Basic/Pro/Premium), Next Steps. Be specific and premium.`;
+
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
+        });
+        const data = await resp.json();
+        const text = data.content?.map((c: any) => c.text || '').join('') || '';
+        await new Promise(r => setTimeout(r, 600));
+        (window as any).displayResult(text);
+      } catch (e) {
+        await new Promise(r => setTimeout(r, 2000));
+        (window as any).displayResult((window as any).fallbackProposal(bizName, service, bizAudience, bizBudget, (window as any).selectedGoal));
+      }
+    };
+
+  }, []);
+
+  return <div dangerouslySetInnerHTML={{ __html: PAGE_HTML }<style>
 :root{
   --bg:#070709;--s1:#0D0D12;--s2:#13131A;--s3:#1A1A24;--s4:#22222E;
   --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--border3:rgba(255,255,255,0.18);
@@ -381,4 +567,4 @@ function displayResult(text){
 function fallbackProposal(name,service,audience,budget,goal){return'# Executive Summary\n\n'+name+' has a strong opportunity to grow in the digital space. Based on your profile, we have identified a clear path to reach '+audience+' and drive meaningful results for your primary goal: '+(goal||'growth')+'.\n\n# Recommended Strategy\n\nFor '+name+', we recommend a data-driven approach combining authentic brand storytelling with performance marketing. Your audience responds to consistent, high-quality content paired with strategic paid promotion.\n\n**Core pillars:**\n- Build brand authority through consistent content\n- Convert awareness into leads via targeted ads\n- Optimize every touchpoint for '+(goal||'growth')+'\n\n# 90-Day Roadmap\n\n**Month 1 — Foundation**\nSet up optimized profiles, establish brand voice, publish foundational content, run initial awareness campaign.\n\n**Month 2 — Momentum**\nScale winning content, launch retargeting campaigns, grow following by 500–1,000 engaged followers.\n\n**Month 3 — Scale**\nDouble down on best channels, optimize ad spend, establish monthly reporting.\n\n# Pricing Tiers\n\n**Basic Package — $750/mo**\n- 12 custom posts/month\n- Basic graphic design\n- Caption copywriting\n- Monthly analytics report\n\n**Pro Package — $1,500/mo** ⭐ Most Popular\n- 20 custom posts/month\n- Professional design + video editing\n- Paid ads management ($300 ad spend included)\n- Bi-weekly strategy call\n\n**Premium Package — $3,000/mo**\n- 30+ posts/month\n- Full content production\n- $1,000 ad spend included\n- Weekly calls + dedicated account manager\n\n# Next Steps\n\n1. Reply with any questions about this proposal\n2. Schedule a free 30-min discovery call\n3. Choose your package and we kick off within 48 hours\n\nLet\'s build something great together. 🚀';}
 function copyProposal(){const text=document.getElementById('result-content').innerText;navigator.clipboard?.writeText(text).then(()=>showToast('✓ Copied to clipboard'));}
 let toastTimer;function showToast(msg){const t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.add('hidden'),3800);}
-</script>`;
+</script>} />;
